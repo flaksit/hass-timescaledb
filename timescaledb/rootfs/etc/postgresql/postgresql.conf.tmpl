@@ -15,14 +15,9 @@ max_connections = {{ .max_connections }}
 wal_level = replica
 max_wal_senders = 0
 
-# Logging
+# Logging — output to stderr so s6 captures it for the HA log viewer
 log_min_messages = '{{ .log_level }}'
-logging_collector = on
-log_directory = '/data/postgres/log'
-log_filename = 'postgresql.log'
-log_truncate_on_rotation = on
-log_rotation_age = 1d
-log_rotation_size = 10MB
+logging_collector = off
 
 # Authentication
 password_encryption = scram-sha-256
