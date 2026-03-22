@@ -104,7 +104,12 @@ Passwords are stored in `/data/secrets/` and persist across restarts:
 - `/data/secrets/homeassistant_rw_password` (if enabled)
 - `/data/secrets/postgres_password` (if admin enabled)
 
-If you set a password in the configuration, it takes effect on the next restart. If you leave the password field empty, a random 32-character password is generated on first creation and reused on subsequent restarts.
+Password behavior:
+
+- **Empty field on first start:** A random 32-character password is generated and stored.
+- **Set a password:** Takes effect on the next **add-on** restart (no HA restart needed). The configured value is saved to the secrets file.
+- **Change a password:** Same as above — the new password is applied on add-on restart. If HA's `db_url` uses this role, you must also update `secrets.yaml` and restart HA.
+- **Clear a previously set password:** The existing password from the secrets file is kept. Clearing the field does not generate a new password or remove the old one.
 
 ## Data Storage
 
