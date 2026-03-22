@@ -86,7 +86,7 @@ Full superuser access via the built-in `postgres` role.
 | `admin_password` | string | *(auto-generated)* | Password for `postgres`. Leave empty to auto-generate. |
 | `admin_network` | string | `external` | `internal` = HAOS network only. `external` = any IP. |
 
-> **Note:** Without `enable_admin`, the `postgres` superuser has no password and can only connect via local unix socket (inside the container).
+> **Note:** The `postgres` superuser can always connect via local unix socket (inside the container) without a password. The `enable_admin` toggle controls whether it gets a password and remote access — useful for connecting with pgAdmin or psql from another machine.
 
 ### Passwords
 
