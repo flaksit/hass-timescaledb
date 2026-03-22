@@ -1,0 +1,49 @@
+configuration:
+  database:
+    name: Database
+    description: Name of the PostgreSQL database to create
+  shared_buffers:
+    name: Shared Buffers
+    description: "PostgreSQL shared memory (RPi 5 4GB: 256MB, 8GB: 512MB)"
+  work_mem:
+    name: Work Memory
+    description: Memory per sort/hash operation
+  effective_cache_size:
+    name: Effective Cache Size
+    description: "Planner hint for OS cache size (RPi 5 4GB: 768MB, 8GB: 1536MB)"
+  max_connections:
+    name: Max Connections
+    description: Maximum simultaneous database connections (HA typically uses 5-10)
+  log_level:
+    name: Log Level
+    description: PostgreSQL log verbosity
+  ha_db_password:
+    name: HA Database Password
+    description: "Password for the 'homeassistant' role (leave empty to auto-generate)"
+  enable_readonly:
+    name: Enable Read-Only Role
+    description: "Create 'homeassistant_ro' role with read-only access (SELECT only)"
+  readonly_password:
+    name: Read-Only Password
+    description: "Password for 'homeassistant_ro' (leave empty to auto-generate)"
+  readonly_network:
+    name: Read-Only Network
+    description: "Network access for 'homeassistant_ro'. internal = HAOS apps only. external = any IP (also enable host port in Network tab)"
+  enable_readwrite:
+    name: Enable Read-Write Role
+    description: "Create 'homeassistant_rw' role with read-write access (no DDL)"
+  readwrite_password:
+    name: Read-Write Password
+    description: "Password for 'homeassistant_rw' (leave empty to auto-generate)"
+  readwrite_network:
+    name: Read-Write Network
+    description: "Network access for 'homeassistant_rw'. internal = HAOS apps only. external = any IP (also enable host port in Network tab)"
+  enable_admin:
+    name: Enable Admin Access
+    description: "Set password on 'postgres' superuser and allow remote access"
+  admin_password:
+    name: Admin Password
+    description: "Password for 'postgres' superuser (leave empty to auto-generate)"
+  admin_network:
+    name: Admin Network
+    description: "Network access for 'postgres'. internal = HAOS apps only. external = any IP (also enable host port in Network tab)"

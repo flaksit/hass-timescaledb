@@ -1,0 +1,2 @@
+#!/command/with-contenv bashio
+exec gosu postgres postgres -D /data/postgres -k /tmp
