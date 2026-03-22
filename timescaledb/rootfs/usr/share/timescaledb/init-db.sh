@@ -97,50 +97,50 @@ psql -U postgres -h /tmp -d "${DB_NAME}" <<-EOSQL
 EOSQL
 bashio::log.info "Role 'homeassistant' ready."
 
-# ha_readonly role — optional, SELECT only
+# homeassistant_ro role — optional, SELECT only
 if bashio::config.true 'enable_readonly'; then
-    RO_PW=$(ensure_password "ha_readonly" "readonly_password")
+    RO_PW=$(ensure_password "homeassistant_ro" "readonly_password")
     psql -U postgres -h /tmp -d "${DB_NAME}" <<-EOSQL
         DO \$\$
         BEGIN
-            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'ha_readonly') THEN
-                CREATE ROLE ha_readonly LOGIN PASSWORD '${RO_PW}';
-                RAISE NOTICE 'Created role ha_readonly';
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'homeassistant_ro') THEN
+                CREATE ROLE homeassistant_ro LOGIN PASSWORD '${RO_PW}';
+                RAISE NOTICE 'Created role homeassistant_ro';
             ELSE
-                ALTER ROLE ha_readonly PASSWORD '${RO_PW}';
+                ALTER ROLE homeassistant_ro PASSWORD '${RO_PW}';
             END IF;
         END
         \$\$;
-        GRANT CONNECT ON DATABASE "${DB_NAME}" TO ha_readonly;
-        GRANT USAGE ON SCHEMA public TO ha_readonly;
-        GRANT SELECT ON ALL TABLES IN SCHEMA public TO ha_readonly;
-        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO ha_readonly;
+        GRANT CONNECT ON DATABASE "${DB_NAME}" TO homeassistant_ro;
+        GRANT USAGE ON SCHEMA public TO homeassistant_ro;
+        GRANT SELECT ON ALL TABLES IN SCHEMA public TO homeassistant_ro;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO homeassistant_ro;
 EOSQL
-    bashio::log.info "Role 'ha_readonly' ready."
+    bashio::log.info "Role 'homeassistant_ro' ready."
 fi
 
-# ha_readwrite role — optional, DML only (no DDL)
+# homeassistant_rw role — optional, DML only (no DDL)
 if bashio::config.true 'enable_readwrite'; then
-    RW_PW=$(ensure_password "ha_readwrite" "readwrite_password")
+    RW_PW=$(ensure_password "homeassistant_rw" "readwrite_password")
     psql -U postgres -h /tmp -d "${DB_NAME}" <<-EOSQL
         DO \$\$
         BEGIN
-            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'ha_readwrite') THEN
-                CREATE ROLE ha_readwrite LOGIN PASSWORD '${RW_PW}';
-                RAISE NOTICE 'Created role ha_readwrite';
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'homeassistant_rw') THEN
+                CREATE ROLE homeassistant_rw LOGIN PASSWORD '${RW_PW}';
+                RAISE NOTICE 'Created role homeassistant_rw';
             ELSE
-                ALTER ROLE ha_readwrite PASSWORD '${RW_PW}';
+                ALTER ROLE homeassistant_rw PASSWORD '${RW_PW}';
             END IF;
         END
         \$\$;
-        GRANT CONNECT ON DATABASE "${DB_NAME}" TO ha_readwrite;
-        GRANT USAGE ON SCHEMA public TO ha_readwrite;
-        GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ha_readwrite;
-        GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ha_readwrite;
-        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ha_readwrite;
-        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO ha_readwrite;
+        GRANT CONNECT ON DATABASE "${DB_NAME}" TO homeassistant_rw;
+        GRANT USAGE ON SCHEMA public TO homeassistant_rw;
+        GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO homeassistant_rw;
+        GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO homeassistant_rw;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO homeassistant_rw;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO homeassistant_rw;
 EOSQL
-    bashio::log.info "Role 'ha_readwrite' ready."
+    bashio::log.info "Role 'homeassistant_rw' ready."
 fi
 
 # postgres superuser — optional, just set a password

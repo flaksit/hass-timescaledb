@@ -11,22 +11,22 @@ host    all       all            ::1/128          scram-sha-256
 host    all       homeassistant  172.30.32.0/23   scram-sha-256
 
 {{ if .enable_readonly }}
-# ha_readonly role
+# homeassistant_ro role
 {{ if eq .readonly_network "internal" }}
-host    all       ha_readonly    172.30.32.0/23   scram-sha-256
+host    all       homeassistant_ro    172.30.32.0/23   scram-sha-256
 {{ else }}
-host    all       ha_readonly    0.0.0.0/0        scram-sha-256
-host    all       ha_readonly    ::/0             scram-sha-256
+host    all       homeassistant_ro    0.0.0.0/0        scram-sha-256
+host    all       homeassistant_ro    ::/0             scram-sha-256
 {{ end }}
 {{ end }}
 
 {{ if .enable_readwrite }}
-# ha_readwrite role
+# homeassistant_rw role
 {{ if eq .readwrite_network "internal" }}
-host    all       ha_readwrite   172.30.32.0/23   scram-sha-256
+host    all       homeassistant_rw   172.30.32.0/23   scram-sha-256
 {{ else }}
-host    all       ha_readwrite   0.0.0.0/0        scram-sha-256
-host    all       ha_readwrite   ::/0             scram-sha-256
+host    all       homeassistant_rw   0.0.0.0/0        scram-sha-256
+host    all       homeassistant_rw   ::/0             scram-sha-256
 {{ end }}
 {{ end }}
 

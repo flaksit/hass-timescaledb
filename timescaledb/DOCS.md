@@ -63,24 +63,24 @@ recorder:
   db_url: !secret recorder_db_url
 ```
 
-#### ha_readonly (optional)
+#### homeassistant_ro (optional)
 
 Read-only access to the database. Useful for Grafana dashboards or analytics tools.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `enable_readonly` | bool | `false` | Create the `ha_readonly` role. |
-| `readonly_password` | string | *(auto-generated)* | Password for `ha_readonly`. Leave empty to auto-generate. |
+| `enable_readonly` | bool | `false` | Create the `homeassistant_ro` role. |
+| `readonly_password` | string | *(auto-generated)* | Password for `homeassistant_ro`. Leave empty to auto-generate. |
 | `readonly_network` | string | `external` | `internal` = HAOS network only. `external` = any IP that can reach port 5432. |
 
-#### ha_readwrite (optional)
+#### homeassistant_rw (optional)
 
 Read-write access (SELECT, INSERT, UPDATE, DELETE) without DDL privileges. For custom integrations that need to write data.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `enable_readwrite` | bool | `false` | Create the `ha_readwrite` role. |
-| `readwrite_password` | string | *(auto-generated)* | Password for `ha_readwrite`. Leave empty to auto-generate. |
+| `enable_readwrite` | bool | `false` | Create the `homeassistant_rw` role. |
+| `readwrite_password` | string | *(auto-generated)* | Password for `homeassistant_rw`. Leave empty to auto-generate. |
 | `readwrite_network` | string | `external` | `internal` = HAOS network only. `external` = any IP. |
 
 #### postgres / admin (optional)
@@ -100,8 +100,8 @@ Full superuser access via the built-in `postgres` role.
 Passwords are stored in `/data/secrets/` and persist across restarts:
 
 - `/data/secrets/homeassistant_password`
-- `/data/secrets/ha_readonly_password` (if enabled)
-- `/data/secrets/ha_readwrite_password` (if enabled)
+- `/data/secrets/homeassistant_ro_password` (if enabled)
+- `/data/secrets/homeassistant_rw_password` (if enabled)
 - `/data/secrets/postgres_password` (if admin enabled)
 
 If you set a password in the configuration, it takes effect on the next restart. If you leave the password field empty, a random 32-character password is generated on first creation and reused on subsequent restarts.
@@ -117,7 +117,7 @@ PostgreSQL data is stored in the add-on's persistent `/data/postgres` directory.
 
 ## Network
 
-The add-on exposes PostgreSQL on port **5432**. The `homeassistant` role can only connect from the HAOS add-on network. Optional roles (`ha_readonly`, `ha_readwrite`, `postgres`) can be configured for internal or external access.
+The add-on exposes PostgreSQL on port **5432**. The `homeassistant` role can only connect from the HAOS add-on network. Optional roles (`homeassistant_ro`, `homeassistant_rw`, `postgres`) can be configured for internal or external access.
 
 ## Uninstalling
 
