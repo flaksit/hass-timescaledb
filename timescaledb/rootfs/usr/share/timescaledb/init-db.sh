@@ -171,7 +171,7 @@ if bashio::config.true 'enable_readwrite'; then
 fi
 if bashio::config.true 'enable_admin'; then
     ADMIN_PW_LOG=$(cat "${SECRETS_DIR}/postgres_password")
-    bashio::log.info "  postgres: postgresql://postgres:${ADMIN_PW_LOG}@${APP_HOSTNAME}:5432/${DB_NAME}"
+    bashio::log.info "  postgres: postgresql://postgres:${ADMIN_PW_LOG}@${APP_HOSTNAME}:5432/postgres"
 fi
 bashio::log.info "---"
 
