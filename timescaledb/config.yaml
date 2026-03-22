@@ -1,0 +1,34 @@
+name: TimescaleDB
+version: "0.1.0"
+slug: timescaledb
+description: PostgreSQL 18 + TimescaleDB 2.25 time-series database for Home Assistant
+url: https://github.com/flaksit/hass-timescaledb-addon
+arch:
+  - aarch64
+startup: system
+init: false
+ports:
+  5432/tcp: 5432
+ports_description:
+  5432/tcp: PostgreSQL
+timeout: 60
+watchdog: "tcp://[HOST]:5432"
+backup: cold
+backup_exclude:
+  - data/postgres
+map:
+  - backup:rw
+options:
+  databases: homeassistant
+  shared_buffers: "256MB"
+  work_mem: "32MB"
+  effective_cache_size: "768MB"
+  max_connections: 50
+  log_level: info
+schema:
+  databases: str
+  shared_buffers: str
+  work_mem: str
+  effective_cache_size: str
+  max_connections: int(10,500)
+  log_level: list(trace|debug|info|notice|warning|error|fatal)

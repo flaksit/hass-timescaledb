@@ -1,0 +1,7 @@
+build_from:
+  aarch64: timescale/timescaledb:2.25.2-pg18
+  amd64: timescale/timescaledb:2.25.2-pg18
+args:
+  S6_OVERLAY_VERSION: "3.2.2.0"
+  BASHIO_VERSION: "0.17.5"
+  TEMPIO_VERSION: "2024.11.2"
