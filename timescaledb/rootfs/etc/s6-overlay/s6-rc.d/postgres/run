@@ -1,2 +1,2 @@
 #!/command/with-contenv bashio
-exec chpst -u postgres postgres -D /data/postgres -k /tmp
+exec gosu postgres postgres -D /data/postgres -k /tmp

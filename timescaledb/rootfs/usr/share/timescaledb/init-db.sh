@@ -29,10 +29,14 @@ ensure_password() {
     cat "${secret_file}"
 }
 
+# Ensure data directory exists and is owned by postgres
+mkdir -p "${PGDATA}"
+chown -R postgres:postgres "${PGDATA}"
+
 # Initialize cluster if not exists (guard with PG_VERSION check to prevent data loss on restart)
 if [ ! -f "${PGDATA}/PG_VERSION" ]; then
     bashio::log.info "Initializing PostgreSQL cluster at ${PGDATA}..."
-    initdb \
+    gosu postgres initdb \
         --pgdata="${PGDATA}" \
         --username=postgres \
         --encoding=UTF-8 \
@@ -57,10 +61,11 @@ tempio \
     -out "${PGDATA}/pg_hba.conf"
 
 mkdir -p "${PGDATA}/log"
+chown -R postgres:postgres "${PGDATA}"
 
 # Start PostgreSQL temporarily for initialization
 bashio::log.info "Starting PostgreSQL temporarily for initialization..."
-pg_ctl -D "${PGDATA}" -w -o "-p 5432 -k /tmp" start
+gosu postgres pg_ctl -D "${PGDATA}" -w -o "-p 5432 -k /tmp" start
 pg_isready --host=/tmp --timeout=30
 
 # Create database if not exists
@@ -159,5 +164,5 @@ bashio::log.info "  Passwords stored in: ${SECRETS_DIR}/"
 bashio::log.info "---"
 
 # Stop temporary PostgreSQL (the longrun service will start it properly)
-pg_ctl -D "${PGDATA}" -w stop
+gosu postgres pg_ctl -D "${PGDATA}" -w stop
 bashio::log.info "Database '${DB_NAME}' with TimescaleDB ready."
