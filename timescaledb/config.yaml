@@ -28,13 +28,13 @@ options:
   ha_db_password: ""
   enable_readonly: false
   readonly_password: ""
-  readonly_network: external
+  readonly_network: internal
   enable_readwrite: false
   readwrite_password: ""
-  readwrite_network: external
+  readwrite_network: internal
   enable_admin: false
   admin_password: ""
-  admin_network: external
+  admin_network: internal
 schema:
   databases: str
   shared_buffers: str
