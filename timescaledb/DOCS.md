@@ -6,7 +6,7 @@ PostgreSQL 18 with TimescaleDB 2.25 for Home Assistant. Provides a high-performa
 
 1. In Home Assistant, navigate to **Settings > Apps > App Store**
 2. Click the three-dot menu (top right) and select **Repositories**
-3. Add: `https://github.com/flaksit/hass-timescaledb`
+3. Add: `https://github.com/flaksit/ha-timescaledb`
 4. Find "TimescaleDB" in the store and click **Install**
 5. Start the app — first startup initializes the database (this takes 30-60 seconds)
 6. Check the app logs to confirm: "Database 'homeassistant' with TimescaleDB ready"
@@ -53,7 +53,7 @@ This role can only connect from within the HAOS app network (172.30.32.0/23). To
 2. Copy the `db_url` into `secrets.yaml`:
    ```yaml
    # secrets.yaml
-   recorder_db_url: postgresql://homeassistant:ACTUAL_PASSWORD@d00de1c4-timescaledb:5432/homeassistant
+   recorder_db_url: postgresql://homeassistant:ACTUAL_PASSWORD@b872f4a0-timescaledb:5432/homeassistant
    ```
 3. Reference it in `configuration.yaml`:
    ```yaml
@@ -61,7 +61,7 @@ This role can only connect from within the HAOS app network (172.30.32.0/23). To
      db_url: !secret recorder_db_url
    ```
 
-The hostname `d00de1c4-timescaledb` is stable across app updates, rebuilds, and restarts. It is derived from the repository URL and only changes if you remove and re-add the repository from a different URL.
+The hostname `b872f4a0-timescaledb` is stable across app updates, rebuilds, and restarts. It is derived from the repository URL and only changes if you remove and re-add the repository from a different URL.
 
 #### homeassistant_ro (optional)
 
@@ -123,7 +123,7 @@ By default, PostgreSQL is only accessible from within HAOS (other apps and HA co
 
 ### Internal access (default)
 
-HA and other apps connect using the hostname `d00de1c4-timescaledb` on port `5432`. No additional configuration needed.
+HA and other apps connect using the hostname `b872f4a0-timescaledb` on port `5432`. No additional configuration needed.
 
 ### External access (e.g. psql from laptop, Grafana on another machine)
 
@@ -181,7 +181,7 @@ This builds a Python 3.14 Alpine container with the migration script and psycopg
 ### Step 3: Run smoke test
 
 ```bash
-PG_PASS=$(ssh ha "docker exec addon_d00de1c4_timescaledb cat /data/secrets/homeassistant_password")
+PG_PASS=$(ssh ha "docker exec addon_b872f4a0_timescaledb cat /data/secrets/homeassistant_password")
 
 ssh ha "docker run --rm --network hassio \
   -v /mnt/data/supervisor/homeassistant/home-assistant_v2.db:/data/home-assistant_v2.db:ro \
@@ -234,7 +234,7 @@ Do **not** switch HA to PostgreSQL yet. The bulk pre-copy leaves ~380 mutable ti
 
 This removes the app and all PostgreSQL data in `/data/postgres`. The data cannot be recovered after uninstalling unless you have a separate backup.
 
-To also remove the repository, go to **Settings > Apps > App Store** > three-dot menu > **Repositories** and delete the `https://github.com/flaksit/hass-timescaledb` entry.
+To also remove the repository, go to **Settings > Apps > App Store** > three-dot menu > **Repositories** and delete the `https://github.com/flaksit/ha-timescaledb` entry.
 
 ## Troubleshooting
 
