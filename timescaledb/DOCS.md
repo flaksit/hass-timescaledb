@@ -37,11 +37,15 @@ Other options can remain at defaults for most installations.
 
 ### JIT compilation
 
-PostgreSQL's LLVM JIT is **disabled** in this app (`jit = off` in `postgresql.conf`). Home Assistant and Grafana workloads are dashboard-speed (seconds, not minutes) and dominated by decompression and aggregation over time-series chunks, not per-row CPU. In that regime the JIT's 1–3 s LLVM compile cost is pure overhead.
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enable_jit` | bool | `true` | Enable PostgreSQL's LLVM JIT compilation (Postgres default). |
 
-Measured on a real HA dataset (1.5M rows, 154k output buckets): 3.3 s with `jit = off` vs 5.9 s with `jit = on`.
+PostgreSQL's LLVM JIT is **enabled by default** (matching upstream PostgreSQL). Home Assistant and Grafana workloads are dashboard-speed (seconds, not minutes) and dominated by decompression and aggregation over time-series chunks, not per-row CPU. In that regime the JIT's 1–3 s LLVM compile cost is often pure overhead.
 
-For ad-hoc analytical queries that actually benefit from JIT, opt in per session:
+Measured on one real HA dataset (1.5M rows, 154k output buckets): 3.3 s with `jit = off` vs 5.9 s with `jit = on`. If your dashboards feel sluggish, set `enable_jit: false` in the app's **Configuration** tab and restart the app.
+
+To override per session without changing the global default:
 
 ```sql
 SET jit = on;

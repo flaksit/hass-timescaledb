@@ -15,11 +15,11 @@ max_connections = {{ .max_connections }}
 wal_level = replica
 max_wal_senders = 0
 
-# JIT disabled: dashboard-speed queries (Grafana, HA history) never amortize
-# the 1–3 s LLVM compile overhead. Observed on real HA workload: identical
-# 154k-row aggregation takes 3.3 s with jit=off vs 5.9 s with jit=on.
-# For one-off analytical queries, opt in per session with `SET jit = on;`.
-jit = off
+# JIT compilation — follows the Postgres default (on). Dashboard-speed queries
+# (Grafana, HA history) rarely amortize the 1–3 s LLVM compile overhead, so
+# turning it off via the `enable_jit` option can help. On one measured HA
+# workload a 154k-row aggregation took 3.3 s with jit=off vs 5.9 s with jit=on.
+jit = {{ if .enable_jit }}on{{ else }}off{{ end }}
 
 # Logging — output to stderr so s6 captures it for the HA log viewer
 log_min_messages = '{{ .log_level }}'

@@ -17,6 +17,9 @@ configuration:
   log_level:
     name: Log Level
     description: PostgreSQL log verbosity
+  enable_jit:
+    name: Enable JIT Compilation
+    description: "Enable PostgreSQL LLVM JIT (Postgres default). Turn off if dashboard queries feel slow — the 1–3s compile cost rarely pays off on HA/Grafana workloads."
   ha_db_password:
     name: HA Database Password
     description: "Password for the 'homeassistant' role (leave empty to auto-generate)"
