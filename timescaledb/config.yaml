@@ -36,6 +36,17 @@ options:
   enable_admin: false
   admin_password: ""
   admin_network: internal
+  # Backup (pgBackRest dual-repo; default off — upstream users not using backup are unaffected)
+  backup_enabled: false
+  archive_timeout_seconds: 3600
+  repo1_sftp_host: ""
+  repo1_sftp_port: 23
+  repo1_sftp_user: ""
+  repo1_sftp_path: "/"
+  repo2_sftp_host: ""
+  repo2_sftp_port: 23
+  repo2_sftp_user: ""
+  repo2_sftp_path: "/"
 schema:
   database: str
   shared_buffers: str
@@ -54,3 +65,13 @@ schema:
   enable_admin: bool
   admin_password: "str?"
   admin_network: list(internal|external)
+  backup_enabled: bool
+  archive_timeout_seconds: int(60,86400)
+  repo1_sftp_host: "str?"
+  repo1_sftp_port: int(1,65535)
+  repo1_sftp_user: "str?"
+  repo1_sftp_path: "str?"
+  repo2_sftp_host: "str?"
+  repo2_sftp_port: int(1,65535)
+  repo2_sftp_user: "str?"
+  repo2_sftp_path: "str?"

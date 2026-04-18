@@ -50,3 +50,33 @@ configuration:
   admin_network:
     name: Admin Network
     description: "Network access for 'postgres'. internal = HAOS apps only. external = any IP (also enable host port in Network tab)"
+  backup_enabled:
+    name: Enable pgBackRest Backups
+    description: "Enable dual-repo physical backups to two independent SFTP destinations. When off (default), PostgreSQL runs without WAL archiving and no pgBackRest code path executes. Requires repo1 SFTP fields below. See DOCS.md for setup."
+  archive_timeout_seconds:
+    name: Archive Timeout (seconds)
+    description: "Force a WAL segment switch at least this often even on an idle database. Bounds maximum backup lag. Default 3600 (1 hour)."
+  repo1_sftp_host:
+    name: Repo1 SFTP Host
+    description: "Hostname of the primary (rolling operational) backup SFTP target. Example: u123456.your-storagebox.de"
+  repo1_sftp_port:
+    name: Repo1 SFTP Port
+    description: "SFTP port for repo1. Hetzner Storage Box uses 23; generic SSH is 22."
+  repo1_sftp_user:
+    name: Repo1 SFTP User
+    description: "SFTP username for repo1. For Hetzner Storage Box, the sub-account user (e.g. u123456-sub1)."
+  repo1_sftp_path:
+    name: Repo1 SFTP Path
+    description: "Remote path inside repo1 chroot for pgBackRest data. '/' when the SFTP account is already chrooted to a backup directory."
+  repo2_sftp_host:
+    name: Repo2 SFTP Host
+    description: "Hostname of the archival (annual-forever) backup SFTP target. Fully independent of repo1 — may be a different provider. Leave empty if only repo1 is used."
+  repo2_sftp_port:
+    name: Repo2 SFTP Port
+    description: "SFTP port for repo2."
+  repo2_sftp_user:
+    name: Repo2 SFTP User
+    description: "SFTP username for repo2."
+  repo2_sftp_path:
+    name: Repo2 SFTP Path
+    description: "Remote path inside repo2 chroot for pgBackRest data."
