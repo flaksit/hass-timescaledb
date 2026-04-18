@@ -1,4 +1,34 @@
 ARG BUILD_FROM
+
+# pgbackrest staging image — discarded after binary + .so extraction.
+# WHY multi-stage: Direct `apk add pgbackrest` in the runtime stage would pull the
+# Alpine-packaged `postgresql18` server (~180 MiB) as a meta-dep and shadow the
+# source-built PG18 in /usr/local/bin. The staging image is discarded; only the
+# binary and missing .so files are copied forward.
+# WHAT ldd guard catches: Future Alpine bumps may add runtime .so dependencies not
+# present in the postgres:18-alpine image. The RUN step below fails the build if any
+# symbol is unresolved.
+# VERSION note: pgbackrest version tracks Alpine stable (2.57.0 at 3.23); bumps
+# arrive when Alpine rebuilds the package. Staging image tag (alpine:3.23) must match
+# the runtime base's Alpine version. If the base image bumps to Alpine 3.24, update
+# the staging tag in the same commit (D-03).
+FROM alpine:3.23 AS pgbackrest-stage
+
+RUN apk add --no-cache pgbackrest
+
+# Copy pgbackrest binary plus only the .so files not already in the postgres:18-alpine
+# runtime image into /export/ for selective COPY into the runtime stage.
+# Known delta libs vs postgres:18-alpine: libssh2.so.1, libbz2.so.1 — but ldd parsing
+# catches future additions automatically.
+RUN set -eux; \
+    mkdir -p /export/usr/bin; \
+    cp /usr/bin/pgbackrest /export/usr/bin/pgbackrest; \
+    LIBS=$(ldd /usr/bin/pgbackrest | awk '/=>/ {print $3}' | grep -E '^/(usr/)?lib/' || true); \
+    for L in $LIBS; do \
+      mkdir -p "/export$(dirname $L)"; \
+      cp -aL "$L" "/export$L"; \
+    done
+
 FROM ${BUILD_FROM}
 
 ARG S6_OVERLAY_VERSION
@@ -46,6 +76,20 @@ RUN set -eux; \
     curl -L -f -o /usr/bin/tempio \
       "https://github.com/home-assistant/tempio/releases/download/${TEMPIO_VERSION}/tempio_${TEMPIO_ARCH}"; \
     chmod +x /usr/bin/tempio
+
+# Install pgbackrest from staging image — see top-of-file comment block for rationale.
+# Copies binary + delta .so libs (libssh2, libbz2) from /export/ into the runtime
+# filesystem, then fails the build immediately if any symbol is unresolved.
+COPY --from=pgbackrest-stage /export/ /
+
+RUN set -eux; \
+    UNRESOLVED=$(ldd /usr/bin/pgbackrest | grep 'not found' || true); \
+    if [ -n "$UNRESOLVED" ]; then \
+      echo "ERROR: pgbackrest has unresolved .so dependencies:"; \
+      echo "$UNRESOLVED"; \
+      exit 1; \
+    fi; \
+    /usr/bin/pgbackrest version | grep -E '^pgBackRest 2\.[0-9]+\.[0-9]+'
 
 # Create data directory for persistent storage
 RUN mkdir -p /data
