@@ -29,6 +29,85 @@ ensure_password() {
     cat "${secret_file}"
 }
 
+# Auto-generate a per-repo pgBackRest cipher passphrase if not already present.
+# Idempotent: once written the file is NEVER overwritten (cipher immutability after stanza-create).
+# The passphrase is NOT echoed to stdout — callers read the file directly at pgbackrest invocation time.
+# Usage: ensure_cipher_passphrase <repo_id>   (repo_id ∈ repo1 | repo2)
+ensure_cipher_passphrase() {
+    local repo_id="$1"
+    local pass_file="${SECRETS_DIR}/pgbackrest_cipher_pass_${repo_id}"
+
+    if [ ! -s "${pass_file}" ]; then
+        head -c 24 /dev/urandom | base64 | tr -d '/+=' | head -c 32 > "${pass_file}"
+        # Log warning (not info) so it stands out — loss of this passphrase = permanent backup loss
+        bashio::log.warning "Generated pgBackRest cipher passphrase for ${repo_id} — copy ${pass_file} to a password manager immediately (loss = permanent backup loss)"
+    fi
+    chmod 600 "${pass_file}"
+    chown postgres:postgres "${pass_file}"
+}
+
+# Send a persistent notification to Home Assistant via the supervisor API.
+# Requires SUPERVISOR_TOKEN env var (auto-provided by HAOS to apps).
+# Non-fatal: on any failure (missing token, network error) logs a warning and returns 0.
+# Usage: notify_supervisor <title> <message>
+notify_supervisor() {
+    local title="$1"
+    local message="$2"
+
+    if [ -z "${SUPERVISOR_TOKEN:-}" ]; then
+        bashio::log.warning "pgBackRest: ${title} (SUPERVISOR_TOKEN unavailable — notification not sent)"
+        return 0
+    fi
+
+    local payload
+    payload=$(jq -nc --arg title "${title}" --arg message "${message}" '{title: $title, message: $message}')
+
+    # SUPERVISOR_TOKEN goes in the Authorization header only — NEVER in URL or log output
+    if ! curl -fsS --max-time 10 \
+        -X POST \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+        -d "${payload}" \
+        http://supervisor/core/api/services/persistent_notification/create 2>/dev/null; then
+        bashio::log.warning "pgBackRest: failed to send notification '${title}' via supervisor API"
+    fi
+    return 0
+}
+
+# Classify a pgbackrest exit code + stderr as "transient" or "non-transient".
+# Non-transient errors must not be retried — they require manual intervention (wrong key, cipher mismatch).
+# Transient errors (network timeouts, temporary DNS failures) are safe to retry.
+# Defaults to "non-transient" when the error cannot be classified — safety-first.
+# Usage: classify_pgbackrest_error <exit_code> [stderr_file]
+# Output: echoes "transient" or "non-transient"
+classify_pgbackrest_error() {
+    local exit_code="$1"
+    local stderr_file="${2:-}"
+    local stderr_content=""
+
+    # Exit codes that are always non-transient regardless of stderr:
+    #   31 = crypto/cipher error (wrong passphrase, incompatible encryption)
+    #   102 = stanza mismatch (existing stanza has different configuration)
+    case "${exit_code}" in
+        31|102) echo "non-transient"; return ;;
+    esac
+
+    if [ -f "${stderr_file}" ]; then
+        stderr_content=$(tail -c 4096 "${stderr_file}" 2>/dev/null || true)
+    fi
+
+    # Non-transient patterns: auth/permission failures, known_hosts mismatches, key problems
+    if echo "${stderr_content}" | grep -qiE 'authentication|denied|permission|unknown key|not found in known_hosts|host key verification|invalid private key|cipher'; then
+        echo "non-transient"
+    # Transient patterns: network connectivity / temporary infrastructure problems
+    elif echo "${stderr_content}" | grep -qiE 'timeout|timed out|Connection reset|Connection refused|Temporary failure|could not resolve|network is unreachable|EOF from client'; then
+        echo "transient"
+    else
+        # Unrecognized exit code with no pattern match — default to non-transient for safety
+        echo "non-transient"
+    fi
+}
+
 # Ensure data directory exists and is owned by postgres
 mkdir -p "${PGDATA}"
 chown -R postgres:postgres "${PGDATA}"
@@ -174,6 +253,143 @@ if bashio::config.true 'enable_admin'; then
     bashio::log.info "  postgres: postgresql://postgres:${ADMIN_PW_LOG}@${APP_HOSTNAME}:5432/postgres"
 fi
 bashio::log.info "---"
+
+# === pgBackRest backup provisioning ===
+# Gated on backup_enabled. When false: zero pgbackrest calls, no cipher generation,
+# no conf render, archive_mode=off in postgresql.conf. Exactly v1.0.x behaviour.
+if bashio::config.true 'backup_enabled'; then
+
+    # Create log/config directories; pgbackrest refuses to start without its log path
+    mkdir -p /var/log/pgbackrest /etc/pgbackrest
+    chown postgres:postgres /var/log/pgbackrest
+
+    bashio::log.info "Rendering pgbackrest.conf from app options..."
+    if ! tempio \
+        -conf /data/options.json \
+        -template /etc/pgbackrest/pgbackrest.conf.tmpl \
+        -out /etc/pgbackrest/pgbackrest.conf; then
+        notify_supervisor "pgBackRest config render failed" \
+            "tempio failed to render pgbackrest.conf. Check that all required options are set in the app configuration."
+        bashio::log.error "pgBackRest config render failed — backup disabled for this boot"
+        # fall through: _backup_any_success stays false → archive_mode=off sed below handles degrade
+    fi
+    chown postgres:postgres /etc/pgbackrest/pgbackrest.conf 2>/dev/null || true
+    chmod 640 /etc/pgbackrest/pgbackrest.conf 2>/dev/null || true
+
+    # local is only valid inside functions; use plain vars at script top level.
+    # Prefix with _ to signal these are internal to the pgbackrest block.
+    _backup_any_success=false
+    for REPO_ID in repo1 repo2; do
+        # Derive numeric repo index from name ("repo1" → "1", "repo2" → "2")
+        REPO_NUM="${REPO_ID#repo}"
+        SFTP_HOST=$(bashio::config "${REPO_ID}_sftp_host")
+
+        if [ -z "${SFTP_HOST}" ]; then
+            bashio::log.info "pgBackRest ${REPO_ID}: sftp_host not configured — skipping"
+            continue
+        fi
+
+        # Auto-generate cipher passphrase (idempotent: never overwrites an existing file)
+        ensure_cipher_passphrase "${REPO_ID}"
+        CIPHER_FILE="${SECRETS_DIR}/pgbackrest_cipher_pass_${REPO_ID}"
+        KEY_FILE="${SECRETS_DIR}/pgbackrest_id_ed25519_${REPO_ID}"
+        KNOWN_FILE="${SECRETS_DIR}/pgbackrest_known_hosts_${REPO_ID}"
+
+        # Verify user-provided secrets exist and are non-empty before attempting stanza-create
+        _missing=""
+        [ ! -s "${KEY_FILE}" ] && _missing="${_missing} ${KEY_FILE}"
+        [ ! -s "${KNOWN_FILE}" ] && _missing="${_missing} ${KNOWN_FILE}"
+        if [ -n "${_missing}" ]; then
+            notify_supervisor "pgBackRest ${REPO_ID} secrets missing" \
+                "The following files are required but missing or empty:${_missing}. See DOCS.md for provisioning steps."
+            bashio::log.error "pgBackRest ${REPO_ID}: missing secrets —${_missing}"
+            continue
+        fi
+
+        # Enforce 600 on user-provided files (user may have copied them with looser perms)
+        chmod 600 "${KEY_FILE}" "${KNOWN_FILE}"
+        chown postgres:postgres "${KEY_FILE}" "${KNOWN_FILE}"
+
+        # Verify PG is ready before stanza-create (PG was started above; this is a belt-and-suspenders check)
+        if ! pg_isready --host=/tmp --username=postgres --timeout=30 >/dev/null 2>&1; then
+            notify_supervisor "pgBackRest ${REPO_ID} pre-check failed" \
+                "PostgreSQL was not ready before stanza-create attempt. Restart the app to retry."
+            bashio::log.error "pgBackRest ${REPO_ID}: PG not ready — skipping stanza-create"
+            continue
+        fi
+
+        # stanza-create with retry: 3 attempts, pre-attempt delays of 0s / 30s / 120s.
+        # Only transient errors are retried; non-transient errors abort immediately.
+        _stanza_ok=false
+        _attempt=0
+        _stderr_file=$(mktemp)
+        for _delay in 0 30 120; do
+            _attempt=$(( _attempt + 1 ))
+            [ "${_delay}" -gt 0 ] && sleep "${_delay}"
+
+            bashio::log.info "pgBackRest ${REPO_ID}: stanza-create attempt ${_attempt}/3..."
+            _exit_code=0
+            # Inject cipher passphrase via env var — pgbackrest accepts PGBACKREST_REPO<N>_CIPHER_PASS.
+            # The passphrase MUST NOT appear in pgbackrest.conf (tempio cannot read /data/secrets/),
+            # and MUST NOT be logged — the env var is scoped to this single invocation only.
+            env "PGBACKREST_REPO${REPO_NUM}_CIPHER_PASS=$(cat "${CIPHER_FILE}")" \
+                gosu postgres /usr/bin/pgbackrest \
+                --stanza=timescaledb \
+                --repo="${REPO_NUM}" \
+                stanza-create 2>"${_stderr_file}" || _exit_code=$?
+
+            if [ "${_exit_code}" -eq 0 ]; then
+                bashio::log.info "pgBackRest ${REPO_ID}: stanza-create OK (attempt ${_attempt})"
+                _stanza_ok=true
+                break
+            fi
+
+            _classification=$(classify_pgbackrest_error "${_exit_code}" "${_stderr_file}")
+            _stderr_tail=$(tail -c 1024 "${_stderr_file}" 2>/dev/null || true)
+
+            if [ "${_classification}" = "non-transient" ]; then
+                notify_supervisor \
+                    "pgBackRest ${REPO_ID} stanza-create failed (non-transient)" \
+                    "Exit ${_exit_code}. Last error: ${_stderr_tail}. Fix secrets/SSH key/host and restart."
+                bashio::log.error "pgBackRest ${REPO_ID}: non-transient error (exit ${_exit_code}) — not retrying"
+                break
+            fi
+
+            if [ "${_attempt}" -eq 3 ]; then
+                notify_supervisor \
+                    "pgBackRest ${REPO_ID} stanza-create failed (retries exhausted)" \
+                    "Exit ${_exit_code} after 3 attempts. Last error: ${_stderr_tail}. Fix connectivity and restart."
+                bashio::log.error "pgBackRest ${REPO_ID}: stanza-create failed after 3 attempts (exit ${_exit_code})"
+            else
+                bashio::log.warning "pgBackRest ${REPO_ID}: transient error (exit ${_exit_code}), retrying..."
+            fi
+        done
+        rm -f "${_stderr_file}"
+
+        if [ "${_stanza_ok}" = "true" ]; then
+            _backup_any_success=true
+        fi
+    done
+
+    # Fail-safe archive_mode degrade: if every configured repo failed stanza-create, disable WAL
+    # archiving for this boot by patching the rendered postgresql.conf. This prevents unbounded WAL
+    # accumulation on disk when pgbackrest cannot accept archive-push commands.
+    # archive_mode requires a full PG restart to re-enable — the user must fix and restart the app.
+    if [ "${_backup_any_success}" = "false" ]; then
+        bashio::log.warning "pgBackRest: all repos failed — disabling archive_mode for this boot (archive_mode=off)"
+        sed -i 's/^archive_mode = on$/archive_mode = off/' "${PGDATA}/postgresql.conf"
+        bashio::log.warning "pgBackRest: Fix the above errors and restart the container to re-enable WAL archiving."
+    fi
+
+    if [ "${_backup_any_success}" = "true" ]; then
+        bashio::log.info "pgBackRest: backup provisioning complete — WAL archiving active"
+    else
+        bashio::log.info "pgBackRest: backup provisioning failed — running without WAL archiving (check HA notifications)"
+    fi
+
+fi
+
+bashio::log.info "Backup: $(bashio::config.true 'backup_enabled' && echo 'enabled' || echo 'disabled')"
 
 # Stop temporary PostgreSQL (the longrun service will start it properly)
 gosu postgres pg_ctl -D "${PGDATA}" -w stop
