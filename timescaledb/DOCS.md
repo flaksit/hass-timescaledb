@@ -355,7 +355,7 @@ Each should list `archive/` and `backup/` directories owned by the corresponding
 Inspect pgBackRest's view of the stanza from inside the container:
 
 ```bash
-ssh ha "docker exec addon_b872f4a0_timescaledb gosu postgres \
+ssh ha "docker exec app_b872f4a0_timescaledb gosu postgres \
   pgbackrest --stanza=timescaledb info"
 ```
 
@@ -433,7 +433,7 @@ These figures assume default retention settings (monthly fulls for 3 years on re
 To inspect pgBackRest's view of stanza state from inside the container:
 
 ```bash
-ssh ha "docker exec addon_b872f4a0_timescaledb gosu postgres pgbackrest --stanza=timescaledb info"
+ssh ha "docker exec app_b872f4a0_timescaledb gosu postgres pgbackrest --stanza=timescaledb info"
 ```
 
 ### Troubleshooting
@@ -873,7 +873,7 @@ Produces a Python + psycopg3 image used in the next steps.
 ### Step 3: Smoke-test against a small slice
 
 ```bash
-PG_PASS=$(ssh ha "docker exec addon_b872f4a0_timescaledb cat /data/secrets/homeassistant_password")
+PG_PASS=$(ssh ha "docker exec app_b872f4a0_timescaledb cat /data/secrets/homeassistant_password")
 
 ssh ha "docker run --rm --network hassio \
   -v /mnt/data/supervisor/homeassistant/home-assistant_v2.db:/data/home-assistant_v2.db:ro \
